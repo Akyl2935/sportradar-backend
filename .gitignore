@@ -5,5 +5,6 @@ venv/
 *.db
 *.pdf
 !schema/*.pdf
-.claude/
-.claude*
+# ide and tool configs
+.vscode/
+.idea/
