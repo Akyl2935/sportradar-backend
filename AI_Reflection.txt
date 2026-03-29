@@ -1,0 +1,7 @@
+AI Tools Used: Google Gemini CLI
+
+How I used it:
+- To analyze the JSON data structure from the provided PDF and turn it into a normalized ERD schema (erd table.pdf)
+- For debugging when I ran into issues like database locking errors and foreign key constraint failures
+- As a reference for Flask project structure (Blueprints, routing, serving static files)
+
