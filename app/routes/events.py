@@ -84,30 +84,67 @@ def get_event(event_id):
 # _home_team_id, _away_team_id, _competition_id, _stage_id
 @events_bp.route('/events', methods=['POST'])
 def create_event():
-    data = request.get_json()  # parse the JSON body from the request
+    data = request.get_json()
 
+    try:
+        conn = get_connection()
+        cursor = conn.cursor()
+
+        cursor.execute(
+            """INSERT INTO events (season, status, date_venue, time_venue_utc,
+            _home_team_id, _away_team_id, _competition_id, _stage_id, _venue_id)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+            (
+                data['season'],
+                data['status'],
+                data['date_venue'],
+                data['time_venue_utc'],
+                data.get('_home_team_id'),
+                data.get('_away_team_id'),
+                data['_competition_id'],
+                data['_stage_id'],
+                data.get('_venue_id')
+            )
+        )
+
+        event_id = cursor.lastrowid
+        conn.commit()
+        conn.close()
+        return jsonify({"id": event_id, "message": "Event created"}), 201
+
+    except Exception as e:
+        conn.close()
+        return jsonify({"error": str(e)}), 400
+
+
+# GET /teams — so the frontend can show team names in dropdowns
+@events_bp.route('/teams', methods=['GET'])
+def get_teams():
     conn = get_connection()
     cursor = conn.cursor()
-
-    cursor.execute(
-        """INSERT INTO events (season, status, date_venue, time_venue_utc,
-        _home_team_id, _away_team_id, _competition_id, _stage_id, _venue_id)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)""",
-        (
-            data['season'],
-            data['status'],
-            data['date_venue'],
-            data['time_venue_utc'],
-            data.get('_home_team_id'),      # .get() returns None if key missing
-            data.get('_away_team_id'),
-            data['_competition_id'],
-            data['_stage_id'],
-            data.get('_venue_id')
-        )
-    )
-
-    event_id = cursor.lastrowid
-    conn.commit()
+    cursor.execute("SELECT id, name FROM teams ORDER BY name")
+    teams = [dict(row) for row in cursor.fetchall()]
     conn.close()
+    return jsonify(teams)
 
-    return jsonify({"id": event_id, "message": "Event created"}), 201
+
+# GET /competitions — for frontend dropdowns
+@events_bp.route('/competitions', methods=['GET'])
+def get_competitions():
+    conn = get_connection()
+    cursor = conn.cursor()
+    cursor.execute("SELECT id, name FROM competitions ORDER BY name")
+    competitions = [dict(row) for row in cursor.fetchall()]
+    conn.close()
+    return jsonify(competitions)
+
+
+# GET /stages — for frontend dropdowns
+@events_bp.route('/stages', methods=['GET'])
+def get_stages():
+    conn = get_connection()
+    cursor = conn.cursor()
+    cursor.execute("SELECT id, name FROM stages ORDER BY ordering")
+    stages = [dict(row) for row in cursor.fetchall()]
+    conn.close()
+    return jsonify(stages)

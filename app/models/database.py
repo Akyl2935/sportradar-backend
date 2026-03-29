@@ -3,7 +3,7 @@ import sqlite3
 
 # connect to db and configure it
 def get_connection():
-    conn = sqlite3.connect('sports_calendar.db')
+    conn = sqlite3.connect('sports_calendar.db', timeout=10)  # timeout avoids "database is locked" errors
     conn.row_factory = sqlite3.Row  # lets us access columns by name 
     conn.execute("PRAGMA foreign_keys = ON")  # sqlite has foreign keys off by default, this enforces them
     return conn

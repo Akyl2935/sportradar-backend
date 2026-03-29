@@ -1,0 +1,218 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sports Event Calendar</title>
+    <!-- link to our css file -->
+    <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+
+    <!-- navbar with placeholder links -->
+    <nav class="navbar">
+        <div class="nav-brand">Sports Calendar</div>
+        <ul class="nav-links">
+            <li><a href="/">Home</a></li>
+            <li><a href="#events">Events</a></li>
+            <li><a href="#">About</a></li>
+            <li><a href="#">Contact</a></li>
+        </ul>
+    </nav>
+
+    <div class="container">
+        <h1>Upcoming Events</h1>
+
+        <!-- events will be loaded here by javascript -->
+        <table id="events-table">
+            <thead>
+                <tr>
+                    <th>Date</th>
+                    <th>Time (UTC)</th>
+                    <th>Home Team</th>
+                    <th>Away Team</th>
+                    <th>Competition</th>
+                    <th>Stage</th>
+                    <th>Status</th>
+                    <th>Score</th>
+                </tr>
+            </thead>
+            <tbody id="events-body">
+                <!-- rows get inserted here by javascript -->
+            </tbody>
+        </table>
+
+        <!-- form to add a new event -->
+        <h2>Add New Event</h2>
+        <form id="add-event-form">
+            <label for="season">Season</label>
+            <input type="number" id="season" name="season" required>
+
+            <label for="status">Status</label>
+            <select id="status" name="status" required>
+                <option value="scheduled">Scheduled</option>
+                <option value="played">Played</option>
+            </select>
+
+            <label for="date_venue">Date</label>
+            <input type="date" id="date_venue" name="date_venue" required>
+
+            <label for="time_venue_utc">Time (UTC)</label>
+            <input type="time" id="time_venue_utc" name="time_venue_utc" required>
+
+            <label for="_home_team_id">Home Team</label>
+            <select id="_home_team_id" name="_home_team_id">
+                <option value="">-- TBD --</option>
+            </select>
+
+            <label for="_away_team_id">Away Team</label>
+            <select id="_away_team_id" name="_away_team_id">
+                <option value="">-- TBD --</option>
+            </select>
+
+            <label for="_competition_id">Competition</label>
+            <select id="_competition_id" name="_competition_id" required>
+            </select>
+
+            <label for="_stage_id">Stage</label>
+            <select id="_stage_id" name="_stage_id" required>
+            </select>
+
+            <button type="submit">Add Event</button>
+        </form>
+
+        <p id="form-message"></p>
+    </div>
+
+    <script>
+        // fetch all events from our API and display them in the table
+        function loadEvents() {
+            fetch('/events')
+                .then(function(response) { return response.json(); })
+                .then(function(events) {
+                    var tbody = document.getElementById('events-body');
+                    tbody.innerHTML = '';
+
+                    for (var i = 0; i < events.length; i++) {
+                        var ev = events[i];
+                        var row = document.createElement('tr');
+                        var score = (ev.home_goals !== null)
+                            ? ev.home_goals + ' - ' + ev.away_goals
+                            : '-';
+
+                        row.innerHTML =
+                            '<td>' + ev.date_venue + '</td>' +
+                            '<td>' + ev.time_venue_utc + '</td>' +
+                            '<td>' + (ev.home_team || 'TBD') + '</td>' +
+                            '<td>' + (ev.away_team || 'TBD') + '</td>' +
+                            '<td>' + ev.competition + '</td>' +
+                            '<td>' + ev.stage + '</td>' +
+                            '<td>' + ev.status + '</td>' +
+                            '<td>' + score + '</td>';
+
+                        tbody.appendChild(row);
+                    }
+                })
+                .catch(function(err) { console.error('Failed to load events:', err); });
+        }
+
+        // handle the add event form submission
+        document.getElementById('add-event-form').addEventListener('submit', function(e) {
+            e.preventDefault(); // stop page from refreshing
+
+            // read form values and convert to proper types
+            var homeId = document.getElementById('_home_team_id').value;
+            var awayId = document.getElementById('_away_team_id').value;
+
+            var data = {
+                season: parseInt(document.getElementById('season').value),
+                status: document.getElementById('status').value,
+                date_venue: document.getElementById('date_venue').value,
+                time_venue_utc: document.getElementById('time_venue_utc').value + ':00',
+                _home_team_id: homeId ? parseInt(homeId) : null,
+                _away_team_id: awayId ? parseInt(awayId) : null,
+                _competition_id: parseInt(document.getElementById('_competition_id').value),
+                _stage_id: parseInt(document.getElementById('_stage_id').value)
+            };
+
+            // send POST request to our API
+            fetch('/events', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(data)
+            })
+            .then(function(response) { return response.json().then(function(body) { return { ok: response.ok, body: body }; }); })
+            .then(function(result) {
+                var msg = document.getElementById('form-message');
+                if (result.ok) {
+                    msg.style.color = 'green';
+                    msg.textContent = result.body.message || 'Event created!';
+                    loadEvents();
+                    document.getElementById('add-event-form').reset();
+                } else {
+                    msg.style.color = 'red';
+                    msg.textContent = 'Error: ' + (result.body.error || 'Something went wrong');
+                }
+            })
+            .catch(function(err) {
+                var msg = document.getElementById('form-message');
+                msg.style.color = 'red';
+                msg.textContent = 'Error: ' + err;
+            });
+        });
+
+        // fill dropdown selects with data from the API
+        function loadDropdowns() {
+            // load teams into both home and away dropdowns
+            fetch('/teams')
+                .then(function(r) { return r.json(); })
+                .then(function(teams) {
+                    var homeSelect = document.getElementById('_home_team_id');
+                    var awaySelect = document.getElementById('_away_team_id');
+                    for (var i = 0; i < teams.length; i++) {
+                        var opt1 = document.createElement('option');
+                        opt1.value = teams[i].id;
+                        opt1.textContent = teams[i].name;
+                        homeSelect.appendChild(opt1);
+
+                        var opt2 = document.createElement('option');
+                        opt2.value = teams[i].id;
+                        opt2.textContent = teams[i].name;
+                        awaySelect.appendChild(opt2);
+                    }
+                });
+
+            // load competitions
+            fetch('/competitions')
+                .then(function(r) { return r.json(); })
+                .then(function(comps) {
+                    var select = document.getElementById('_competition_id');
+                    for (var i = 0; i < comps.length; i++) {
+                        var opt = document.createElement('option');
+                        opt.value = comps[i].id;
+                        opt.textContent = comps[i].name;
+                        select.appendChild(opt);
+                    }
+                });
+
+            // load stages
+            fetch('/stages')
+                .then(function(r) { return r.json(); })
+                .then(function(stages) {
+                    var select = document.getElementById('_stage_id');
+                    for (var i = 0; i < stages.length; i++) {
+                        var opt = document.createElement('option');
+                        opt.value = stages[i].id;
+                        opt.textContent = stages[i].name;
+                        select.appendChild(opt);
+                    }
+                });
+        }
+
+        // load everything when page opens
+        loadEvents();
+        loadDropdowns();
+    </script>
+
+</body>
+</html>
